@@ -16,9 +16,9 @@ async function fetchAndFormatData() {
     billable: row.billable?.trim() || "",
     nonbillable: row.nonbillable?.trim() || "",
     projects: row.projects?.trim() || "",
-  projectscount: row.projectscount?.trim() || "",     // ✅ added
-  customerscount: row.customerscount?.trim() || "", 
-    trainees: row.trainees?.trim() || "", 
+    projectscount: row.projectscount?.trim() || "",
+    customerscount: row.customerscount?.trim() || "",
+    trainees: row.trainees?.trim() || "",
   }));
 
   return formatted;
@@ -38,6 +38,7 @@ function buildHierarchy(data) {
       }
     }
   });
+
   return rootNode;
 }
 
@@ -67,21 +68,27 @@ function wrapText(textSelection, text, x, maxCharsPerLine = 28) {
   }
 }
 
+function getCardHeight(d) {
+  let lines = 2; // name + title assumed
+  if (d.data.billable) lines++;
+  if (d.data.nonbillable) lines++;
+  if (d.data.projectscount) lines++;
+  if (d.data.customerscount) lines++;
+  if (d.data.trainees) lines++;
+  return 70 + lines * 18;
+}
+
 function initChart(rootData) {
   const CARD_WIDTH = 290;
-  const CARD_HEIGHT = 140;
   const HORIZONTAL_SPACING = 40;
-  const VERTICAL_SPACING = 100;
-
   const svg = d3.select("#chart").append("svg");
   const g = svg.append("g");
-
   const root = d3.hierarchy(rootData);
   root.x0 = 0;
   root.y0 = 0;
 
   const treeLayout = d3.tree()
-    .nodeSize([CARD_WIDTH + HORIZONTAL_SPACING, CARD_HEIGHT + VERTICAL_SPACING]);
+    .nodeSize([CARD_WIDTH + HORIZONTAL_SPACING, 200]);
 
   root.children?.forEach(collapse);
   update(root);
@@ -93,8 +100,8 @@ function initChart(rootData) {
 
     const xMin = d3.min(nodes, d => d.x) - CARD_WIDTH;
     const xMax = d3.max(nodes, d => d.x) + CARD_WIDTH;
-    const yMin = d3.min(nodes, d => d.y) - CARD_HEIGHT;
-    const yMax = d3.max(nodes, d => d.y) + CARD_HEIGHT;
+    const yMin = d3.min(nodes, d => d.y) - 200;
+    const yMax = d3.max(nodes, d => d.y) + 200;
     const width = xMax - xMin + 100;
     const height = yMax - yMin + 100;
 
@@ -111,10 +118,10 @@ function initChart(rootData) {
       .attr("stroke-width", 2)
       .merge(linkSel)
       .attr("d", d => `
-        M${d.source.x},${d.source.y + CARD_HEIGHT / 2}
+        M${d.source.x},${d.source.y + getCardHeight(d.source) / 2}
         V${(d.source.y + d.target.y) / 2}
         H${d.target.x}
-        V${d.target.y - CARD_HEIGHT / 2}
+        V${d.target.y - getCardHeight(d.target) / 2}
       `);
 
     linkSel.exit().remove();
@@ -125,146 +132,94 @@ function initChart(rootData) {
     const nodeEnter = nodeSel.enter()
       .append("g")
       .attr("class", "node")
-      .attr("transform", () => `translate(${source.x0},${source.y0})`);
+      .attr("transform", d => `translate(${source.x0},${source.y0})`);
 
     nodeEnter.append("rect")
       .attr("x", -CARD_WIDTH / 2)
-      .attr("y", -CARD_HEIGHT / 2)
+      .attr("y", d => -getCardHeight(d) / 2)
       .attr("width", CARD_WIDTH)
-      .attr("height", CARD_HEIGHT)
+      .attr("height", d => getCardHeight(d))
       .attr("rx", 10)
       .attr("ry", 10)
       .attr("fill", "#fff")
       .attr("stroke", "#ccc");
 
-    // nodeEnter.append("image")
-    //   .attr("xlink:href", d => d.data.img)
-    //   .attr("x", -CARD_WIDTH / 2 + 10)
-    //   .attr("y", -CARD_HEIGHT / 2 + 10)
-    //   .attr("width", 50)
-    //   .attr("height", 50)
-    //   .attr("clip-path", "circle(25px at center)");
-    const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png"; // You can change to any avatar icon
+    const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+    nodeEnter.append("image")
+      .attr("xlink:href", DEFAULT_AVATAR)
+      .attr("x", -CARD_WIDTH / 2 + 10)
+      .attr("y", d => -getCardHeight(d) / 2 + 10)
+      .attr("width", 50)
+      .attr("height", 50)
+      .attr("clip-path", "circle(25px at center)");
 
-nodeEnter.append("image")
-  .attr("xlink:href",  DEFAULT_AVATAR)
-  .attr("x", -CARD_WIDTH / 2 + 10)
-  .attr("y", -CARD_HEIGHT / 2 + 10)
-  .attr("width", 50)
-  .attr("height", 50)
-  .attr("clip-path", "circle(25px at center)");
+    const textFields = [
+      { fn: d => d.data.name, color: "black", weight: "bold" },
+      { fn: d => d.data.title },
+      { fn: d => d.data.billable && `${d.data.billable} B`, color: "green", weight: "bold" },
+      { fn: d => d.data.nonbillable && `${d.data.nonbillable} F`, color: "red", weight: "bold" },
+      { fn: d => d.data.projectscount && `${d.data.projectscount} Projects`, color: "#1976d2", weight: "bold" },
+      { fn: d => d.data.customerscount && `${d.data.customerscount} Customers`, color: "#6a1b9a", weight: "bold" },
+      { fn: d => d.data.trainees && `T-${d.data.trainees}`, color: "#ef6c00", weight: "bold" },
+    ];
 
-    // Name (wrapped)
-    nodeEnter.append("text")
-      .attr("x", -CARD_WIDTH / 2 + 70)
-      .attr("y", -CARD_HEIGHT / 2 + 20)
-      .attr("font-size", "14px")
-      .attr("font-weight", "bold")
-      .each(function (d) {
-        wrapText(d3.select(this), d.data.name || "", -CARD_WIDTH / 2 + 70);
-      });
+   nodeEnter.each(function (d) {
+  let group = d3.select(this);
+  let offsetY = -getCardHeight(d) / 2 + 20;
 
-    // Title (wrapped)
-    nodeEnter.append("text")
-      .attr("x", -CARD_WIDTH / 2 + 70)
-      .attr("y", -CARD_HEIGHT / 2 + 50)
-      .attr("font-size", "11px")
-      .each(function (d) {
-        wrapText(d3.select(this), d.data.title || "", -CARD_WIDTH / 2 + 70);
-      });
+  // Render and wrap name first, measure height
+  const nameText = group.append("text")
+    .attr("x", -CARD_WIDTH / 2 + 70)
+    .attr("y", offsetY)
+    .attr("font-size", "12px")
+    .attr("fill", "black")
+    .attr("font-weight", "bold");
 
-   // Projects Count (moved slightly down for margin)
-nodeEnter.append("text")
-  .attr("x", -CARD_WIDTH / 2 + 70)
-  .attr("y", -CARD_HEIGHT / 2 + 85) // 🔼 added margin from 100 → 105
-  .attr("font-size", "12px")
-  .attr("fill", "#1976d2")
-  .attr("font-weight", "bold")
-  .each(function (d) {
-    const val = d.data.projectscount?.trim();
-    if (val) wrapText(d3.select(this), `${val} Projects`, -CARD_WIDTH / 2 + 70);
+  wrapText(nameText, d.data.name, -CARD_WIDTH / 2 + 70);
+
+  const nameLineCount = nameText.selectAll("tspan").size();
+  offsetY += nameLineCount * 14;
+
+  // Now add remaining fields
+  const restFields = [
+    { fn: d => d.data.title },
+    { fn: d => d.data.billable && `${d.data.billable} B`, color: "green", weight: "bold" },
+    { fn: d => d.data.nonbillable && `${d.data.nonbillable} F`, color: "red", weight: "bold" },
+    { fn: d => d.data.projectscount && `${d.data.projectscount} Projects`, color: "#1976d2", weight: "bold" },
+    { fn: d => d.data.customerscount && `${d.data.customerscount} Customers`, color: "#6a1b9a", weight: "bold" },
+    { fn: d => d.data.trainees && `T-${d.data.trainees}`, color: "#ef6c00", weight: "bold" },
+  ];
+
+  restFields.forEach(({ fn, color = "black", weight = "normal" }) => {
+    const val = fn(d);
+    if (val) {
+      const text = group.append("text")
+        .attr("x", -CARD_WIDTH / 2 + 70)
+        .attr("y", offsetY)
+        .attr("font-size", "12px")
+        .attr("fill", color)
+        .attr("font-weight", weight);
+      wrapText(text, val, -CARD_WIDTH / 2 + 70);
+      offsetY += 18;
+    }
   });
-
-// Customers Count (also moved down)
-// Customers Count
-nodeEnter.append("text")
-  .attr("x", -CARD_WIDTH / 2 + 70)
-  .attr("y", -CARD_HEIGHT / 2 + 105)
-  .attr("font-size", "12px")
-  .attr("fill", "#6a1b9a")
-  .attr("font-weight", "bold")
-  .each(function (d) {
-    const val = d.data.customerscount?.trim();
-    if (val) wrapText(d3.select(this), `${val} Customers`, -CARD_WIDTH / 2 + 70);
-  });
-
-// Trainees Count (moved below Customers Count)
-nodeEnter.append("text")
-  .attr("x", -CARD_WIDTH / 2 + 70)
-  .attr("y", -CARD_HEIGHT / 2 + 135)  // 💡 update y-position
-  .attr("font-size", "12px")
-  .attr("fill", "#ef6c00")
-  .attr("font-weight", "bold")
-  .each(function (d) {
-    const val = d.data.trainees?.trim();
-    if (val) wrapText(d3.select(this), `T-${val} `, -CARD_WIDTH / 2 + 70);
-  });
+});
 
 
-    // Billable
-    nodeEnter.append("text")
-      .attr("x", -CARD_WIDTH / 2 + 70)
-      .attr("y", -CARD_HEIGHT / 2 + 70)
-      .attr("font-size", "12px")
-      .attr("fill", "#388e3c")
-      .attr("font-weight", "bold")
-      .each(function (d) {
-        const val = d.data.billable?.trim();
-        if (val) wrapText(d3.select(this), `${val} B`, -CARD_WIDTH / 2 + 70);
-      });
-
-    // Non-billable
-    nodeEnter.append("text")
-      .attr("x", -CARD_WIDTH / 2 + 70)
-      .attr("y", -CARD_HEIGHT / 2 + 85)
-      .attr("font-size", "12px")
-      .attr("fill", "#d32f2f")
-      .attr("font-weight", "bold")
-      .each(function (d) {
-        const val = d.data.nonbillable?.trim();
-        if (val) wrapText(d3.select(this), `${val} F`, -CARD_WIDTH / 2 + 70);
-      });
-
-    // Projects
-    // nodeEnter.append("text")
-    //   .attr("x", -CARD_WIDTH / 2 + 70)
-    //   .attr("y", -CARD_HEIGHT / 2 + 80)
-    //   .attr("font-size", "12px")
-    //   .attr("fill", "#1976d2")
-    //   .attr("font-weight", "bold")
-    //   .each(function (d) {
-    //     const val = d.data.projects?.trim();
-    //     if (val) wrapText(d3.select(this), `${val} P`, -CARD_WIDTH / 2 + 70);
-    //   });
-
-    // Office + Location
     nodeEnter.append("text")
       .attr("x", -CARD_WIDTH / 2 + 10)
-      .attr("y", CARD_HEIGHT / 2 - 10)
+      .attr("y", d => getCardHeight(d) / 2 - 10)
       .attr("font-size", "10px")
       .attr("fill", "gray")
       .each(function (d) {
-        const office = d.data.office?.trim() || "";
-        const location = d.data.location?.trim() || "";
-        const full = [office, location].filter(Boolean).join(" ");
+        const full = [d.data.office, d.data.location].filter(Boolean).join(" ");
         wrapText(d3.select(this), full, -CARD_WIDTH / 2 + 10);
       });
 
-    // Toggle button
     nodeEnter.append("circle")
       .attr("class", "toggle-btn")
       .attr("cx", 0)
-      .attr("cy", CARD_HEIGHT / 2 - 10)
+      .attr("cy", d => getCardHeight(d) / 2 - 10)
       .attr("r", 10)
       .attr("fill", "#f2f2f2")
       .attr("stroke", "#555")
@@ -278,7 +233,7 @@ nodeEnter.append("text")
     nodeEnter.append("text")
       .attr("class", "toggle-icon")
       .attr("x", 0)
-      .attr("y", CARD_HEIGHT / 2 - 6)
+      .attr("y", d => getCardHeight(d) / 2 - 6)
       .attr("text-anchor", "middle")
       .attr("font-size", "14px")
       .attr("pointer-events", "none")
