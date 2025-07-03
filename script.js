@@ -16,6 +16,9 @@ async function fetchAndFormatData() {
     billable: row.billable?.trim() || "",
     nonbillable: row.nonbillable?.trim() || "",
     projects: row.projects?.trim() || "",
+  projectscount: row.projectscount?.trim() || "",     // ✅ added
+  customerscount: row.customerscount?.trim() || "", 
+    trainees: row.trainees?.trim() || "", 
   }));
 
   return formatted;
@@ -65,7 +68,7 @@ function wrapText(textSelection, text, x, maxCharsPerLine = 28) {
 }
 
 function initChart(rootData) {
-  const CARD_WIDTH = 280;
+  const CARD_WIDTH = 290;
   const CARD_HEIGHT = 140;
   const HORIZONTAL_SPACING = 40;
   const VERTICAL_SPACING = 100;
@@ -155,7 +158,7 @@ nodeEnter.append("image")
     nodeEnter.append("text")
       .attr("x", -CARD_WIDTH / 2 + 70)
       .attr("y", -CARD_HEIGHT / 2 + 20)
-      .attr("font-size", "12px")
+      .attr("font-size", "14px")
       .attr("font-weight", "bold")
       .each(function (d) {
         wrapText(d3.select(this), d.data.name || "", -CARD_WIDTH / 2 + 70);
@@ -169,6 +172,44 @@ nodeEnter.append("image")
       .each(function (d) {
         wrapText(d3.select(this), d.data.title || "", -CARD_WIDTH / 2 + 70);
       });
+
+   // Projects Count (moved slightly down for margin)
+nodeEnter.append("text")
+  .attr("x", -CARD_WIDTH / 2 + 70)
+  .attr("y", -CARD_HEIGHT / 2 + 85) // 🔼 added margin from 100 → 105
+  .attr("font-size", "12px")
+  .attr("fill", "#1976d2")
+  .attr("font-weight", "bold")
+  .each(function (d) {
+    const val = d.data.projectscount?.trim();
+    if (val) wrapText(d3.select(this), `${val} Projects`, -CARD_WIDTH / 2 + 70);
+  });
+
+// Customers Count (also moved down)
+// Customers Count
+nodeEnter.append("text")
+  .attr("x", -CARD_WIDTH / 2 + 70)
+  .attr("y", -CARD_HEIGHT / 2 + 105)
+  .attr("font-size", "12px")
+  .attr("fill", "#6a1b9a")
+  .attr("font-weight", "bold")
+  .each(function (d) {
+    const val = d.data.customerscount?.trim();
+    if (val) wrapText(d3.select(this), `${val} Customers`, -CARD_WIDTH / 2 + 70);
+  });
+
+// Trainees Count (moved below Customers Count)
+nodeEnter.append("text")
+  .attr("x", -CARD_WIDTH / 2 + 70)
+  .attr("y", -CARD_HEIGHT / 2 + 135)  // 💡 update y-position
+  .attr("font-size", "12px")
+  .attr("fill", "#ef6c00")
+  .attr("font-weight", "bold")
+  .each(function (d) {
+    const val = d.data.trainees?.trim();
+    if (val) wrapText(d3.select(this), `T-${val} `, -CARD_WIDTH / 2 + 70);
+  });
+
 
     // Billable
     nodeEnter.append("text")
@@ -195,16 +236,16 @@ nodeEnter.append("image")
       });
 
     // Projects
-    nodeEnter.append("text")
-      .attr("x", -CARD_WIDTH / 2 + 70)
-      .attr("y", -CARD_HEIGHT / 2 + 80)
-      .attr("font-size", "12px")
-      .attr("fill", "#1976d2")
-      .attr("font-weight", "bold")
-      .each(function (d) {
-        const val = d.data.projects?.trim();
-        if (val) wrapText(d3.select(this), `${val} P`, -CARD_WIDTH / 2 + 70);
-      });
+    // nodeEnter.append("text")
+    //   .attr("x", -CARD_WIDTH / 2 + 70)
+    //   .attr("y", -CARD_HEIGHT / 2 + 80)
+    //   .attr("font-size", "12px")
+    //   .attr("fill", "#1976d2")
+    //   .attr("font-weight", "bold")
+    //   .each(function (d) {
+    //     const val = d.data.projects?.trim();
+    //     if (val) wrapText(d3.select(this), `${val} P`, -CARD_WIDTH / 2 + 70);
+    //   });
 
     // Office + Location
     nodeEnter.append("text")
