@@ -7,6 +7,8 @@
   <style>
     body {
       font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
     }
    
     .link {
@@ -14,14 +16,24 @@
       stroke: #ccc;
       stroke-width: 2px;
     }
+    
+    h1 {
+      margin-bottom: 20px;
+    }
+    
+    #chart {
+      width: 100%;
+      height: 100vh;
+    }
   </style>
 </head>
-<body>
-  <h1 style="text-align:center">Org Chart</h1>
-  <div id="chart"></div>
+<body style="background-color: rgb(37, 36, 36);">
+  <h1 style="text-align:center; font-size: 4.5em;">
+    <span style="color: rgb(116, 208, 119);" >Org Chart</span>
+  </h1>
+  <div id="chart" ></div>  
 
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  
+  <script src="https://d3js.org/d3.v7.min.js"></script> 
   <script src="./script.js"></script>
 </body>
 </html>
