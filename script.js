@@ -68,27 +68,19 @@ function wrapText(textSelection, text, x, maxCharsPerLine = 28) {
   }
 }
 
-function getCardHeight(d) {
-  let lines = 2; // name + title assumed
-  if (d.data.billable) lines++;
-  if (d.data.nonbillable) lines++;
-  if (d.data.projectscount) lines++;
-  if (d.data.customerscount) lines++;
-  if (d.data.trainees) lines++;
-  return 70 + lines * 18;
-}
-
 function initChart(rootData) {
   const CARD_WIDTH = 290;
+  const CARD_HEIGHT = 150; // Fixed height
   const HORIZONTAL_SPACING = 40;
+  const VERTICAL_SPACING = CARD_HEIGHT + 60;
+
   const svg = d3.select("#chart").append("svg");
   const g = svg.append("g");
   const root = d3.hierarchy(rootData);
   root.x0 = 0;
   root.y0 = 0;
 
-  const treeLayout = d3.tree()
-    .nodeSize([CARD_WIDTH + HORIZONTAL_SPACING, 200]);
+  const treeLayout = d3.tree().nodeSize([CARD_WIDTH + HORIZONTAL_SPACING, VERTICAL_SPACING]);
 
   root.children?.forEach(collapse);
   update(root);
@@ -100,10 +92,10 @@ function initChart(rootData) {
 
     const xMin = d3.min(nodes, d => d.x) - CARD_WIDTH;
     const xMax = d3.max(nodes, d => d.x) + CARD_WIDTH;
-    const yMin = d3.min(nodes, d => d.y) - 200;
-    const yMax = d3.max(nodes, d => d.y) + 200;
+  const yMin = d3.min(nodes, d => d.y) - CARD_HEIGHT / 2 - 40;
+const yMax = d3.max(nodes, d => d.y) + CARD_HEIGHT / 2 + 40;
     const width = xMax - xMin + 100;
-    const height = yMax - yMin + 100;
+    const height = yMax - yMin + 120;
 
     svg.attr("viewBox", [xMin, yMin, width, height]);
 
@@ -118,10 +110,10 @@ function initChart(rootData) {
       .attr("stroke-width", 2)
       .merge(linkSel)
       .attr("d", d => `
-        M${d.source.x},${d.source.y + getCardHeight(d.source) / 2}
+        M${d.source.x},${d.source.y + CARD_HEIGHT / 2}
         V${(d.source.y + d.target.y) / 2}
         H${d.target.x}
-        V${d.target.y - getCardHeight(d.target) / 2}
+        V${d.target.y - CARD_HEIGHT / 2}
       `);
 
     linkSel.exit().remove();
@@ -136,9 +128,9 @@ function initChart(rootData) {
 
     nodeEnter.append("rect")
       .attr("x", -CARD_WIDTH / 2)
-      .attr("y", d => -getCardHeight(d) / 2)
+      .attr("y", -CARD_HEIGHT / 2)
       .attr("width", CARD_WIDTH)
-      .attr("height", d => getCardHeight(d))
+      .attr("height", CARD_HEIGHT)
       .attr("rx", 10)
       .attr("ry", 10)
       .attr("fill", "#fff")
@@ -148,67 +140,53 @@ function initChart(rootData) {
     nodeEnter.append("image")
       .attr("xlink:href", DEFAULT_AVATAR)
       .attr("x", -CARD_WIDTH / 2 + 10)
-      .attr("y", d => -getCardHeight(d) / 2 + 10)
+      .attr("y", -CARD_HEIGHT / 2 + 10)
       .attr("width", 50)
       .attr("height", 50)
       .attr("clip-path", "circle(25px at center)");
 
-    const textFields = [
-      { fn: d => d.data.name, color: "black", weight: "bold" },
-      { fn: d => d.data.title },
-      { fn: d => d.data.billable && `${d.data.billable} B`, color: "green", weight: "bold" },
-      { fn: d => d.data.nonbillable && `${d.data.nonbillable} F`, color: "red", weight: "bold" },
-      { fn: d => d.data.projectscount && `${d.data.projectscount} Projects`, color: "#1976d2", weight: "bold" },
-      { fn: d => d.data.customerscount && `${d.data.customerscount} Customers`, color: "#6a1b9a", weight: "bold" },
-      { fn: d => d.data.trainees && `T-${d.data.trainees}`, color: "#ef6c00", weight: "bold" },
-    ];
+    nodeEnter.each(function (d) {
+      let group = d3.select(this);
+      let offsetY = -CARD_HEIGHT / 2 + 20;
 
-   nodeEnter.each(function (d) {
-  let group = d3.select(this);
-  let offsetY = -getCardHeight(d) / 2 + 20;
-
-  // Render and wrap name first, measure height
-  const nameText = group.append("text")
-    .attr("x", -CARD_WIDTH / 2 + 70)
-    .attr("y", offsetY)
-    .attr("font-size", "12px")
-    .attr("fill", "black")
-    .attr("font-weight", "bold");
-
-  wrapText(nameText, d.data.name, -CARD_WIDTH / 2 + 70);
-
-  const nameLineCount = nameText.selectAll("tspan").size();
-  offsetY += nameLineCount * 14;
-
-  // Now add remaining fields
-  const restFields = [
-    { fn: d => d.data.title },
-    { fn: d => d.data.billable && `${d.data.billable} B`, color: "green", weight: "bold" },
-    { fn: d => d.data.nonbillable && `${d.data.nonbillable} F`, color: "red", weight: "bold" },
-    { fn: d => d.data.projectscount && `${d.data.projectscount} Projects`, color: "#1976d2", weight: "bold" },
-    { fn: d => d.data.customerscount && `${d.data.customerscount} Customers`, color: "#6a1b9a", weight: "bold" },
-    { fn: d => d.data.trainees && `T-${d.data.trainees}`, color: "#ef6c00", weight: "bold" },
-  ];
-
-  restFields.forEach(({ fn, color = "black", weight = "normal" }) => {
-    const val = fn(d);
-    if (val) {
-      const text = group.append("text")
+      const nameText = group.append("text")
         .attr("x", -CARD_WIDTH / 2 + 70)
         .attr("y", offsetY)
         .attr("font-size", "12px")
-        .attr("fill", color)
-        .attr("font-weight", weight);
-      wrapText(text, val, -CARD_WIDTH / 2 + 70);
-      offsetY += 18;
-    }
-  });
-});
+        .attr("fill", "black")
+        .attr("font-weight", "bold");
 
+      wrapText(nameText, d.data.name, -CARD_WIDTH / 2 + 70);
+      const nameLineCount = nameText.selectAll("tspan").size();
+      offsetY += nameLineCount * 14;
+
+      const fields = [
+        { fn: d => d.data.title },
+        { fn: d => d.data.billable && `${d.data.billable} B`, color: "green", weight: "bold" },
+        { fn: d => d.data.nonbillable && `${d.data.nonbillable} F`, color: "red", weight: "bold" },
+        { fn: d => d.data.projectscount && `${d.data.projectscount} Projects`, color: "#1976d2", weight: "bold" },
+        { fn: d => d.data.customerscount && `${d.data.customerscount} Customers`, color: "#6a1b9a", weight: "bold" },
+        { fn: d => d.data.trainees && `T-${d.data.trainees}`, color: "#ef6c00", weight: "bold" },
+      ];
+
+      fields.forEach(({ fn, color = "black", weight = "normal" }) => {
+        const val = fn(d);
+        if (val) {
+          const text = group.append("text")
+            .attr("x", -CARD_WIDTH / 2 + 70)
+            .attr("y", offsetY)
+            .attr("font-size", "12px")
+            .attr("fill", color)
+            .attr("font-weight", weight);
+          wrapText(text, val, -CARD_WIDTH / 2 + 70);
+          offsetY += 18;
+        }
+      });
+    });
 
     nodeEnter.append("text")
       .attr("x", -CARD_WIDTH / 2 + 10)
-      .attr("y", d => getCardHeight(d) / 2 - 10)
+      .attr("y", CARD_HEIGHT / 2 - 10)
       .attr("font-size", "10px")
       .attr("fill", "gray")
       .each(function (d) {
@@ -219,7 +197,7 @@ function initChart(rootData) {
     nodeEnter.append("circle")
       .attr("class", "toggle-btn")
       .attr("cx", 0)
-      .attr("cy", d => getCardHeight(d) / 2 - 10)
+      .attr("cy", CARD_HEIGHT / 2 - 10)
       .attr("r", 10)
       .attr("fill", "#f2f2f2")
       .attr("stroke", "#555")
@@ -233,7 +211,7 @@ function initChart(rootData) {
     nodeEnter.append("text")
       .attr("class", "toggle-icon")
       .attr("x", 0)
-      .attr("y", d => getCardHeight(d) / 2 - 6)
+      .attr("y", CARD_HEIGHT / 2 - 6)
       .attr("text-anchor", "middle")
       .attr("font-size", "14px")
       .attr("pointer-events", "none")
