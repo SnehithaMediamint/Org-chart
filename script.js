@@ -1,11 +1,59 @@
 const csvUrl = "https://docs.google.com/spreadsheets/d/1f35n_acicq6vS9oR1NDCJL5BvHOJ5GxqSMN1t4vIBXA/export?format=csv&gid=1957984317";
 
+const titleColors = {
+  "Chief Delivery Officer": "#81d4fa",
+  "Senior Vice President": "#a5d6a7",
+  "Vice President": "#f48fb1",
+  "Associate President": "#ce93d8",
+  "Senior Director": "#ffcc80",
+  "Director": "#b39ddb",
+  "Associate Director": "#ffab91",
+  "Senior Manager": "#80cbc4",
+  "Manager": "#fff59d",
+  "Associate Manager": "#aed581",
+  "Team Leads": "#90caf9",
+  "default": "#eeeeee"
+};
+
+const legendData = Object.entries(titleColors).filter(([key]) => key !== "default");
+
+const legendContainer = d3.select("#chart")
+  .append("div")
+  .attr("id", "legend")
+  .style("position", "absolute")
+  .style("top", "10px")
+  .style("right", "10px")
+  .style("background", "#222")
+  .style("padding", "15px")
+  .style("border-radius", "8px")
+  .style("color", "#fff")
+  .style("font-size", "11px")
+  .style("box-shadow", "0 2px 10px rgba(75, 65, 65, 0.62)");
+
+legendContainer.append("div")
+  .style("font-weight", "bold")
+  .style("margin-bottom", "6px")
+  .text("Legend");
+
+legendContainer.selectAll("div.legend-item")
+  .data(legendData)
+  .enter()
+  .append("div")
+  .attr("class", "legend-item")
+  .style("display", "flex")
+  .style("align-items", "center")
+  .style("margin-bottom", "4px")
+  .html(([title, color]) => `
+    <div style="width:14px;height:14px;background:${color};border-radius:3px;margin-right:8px;border:1px solid #444;"></div>
+    <span>${title}</span>
+  `);
+
 async function fetchAndFormatData() {
   const response = await fetch(csvUrl);
   const csvText = await response.text();
   const rows = d3.csvParse(csvText);
 
-  const formatted = rows.map(row => ({
+  return rows.map(row => ({
     id: row.id?.trim(),
     name: row.name?.trim(),
     parent_id: row.parent_id?.trim(),
@@ -20,8 +68,6 @@ async function fetchAndFormatData() {
     customerscount: row.customerscount?.trim() || "",
     trainees: row.trainees?.trim() || "",
   }));
-
-  return formatted;
 }
 
 function buildHierarchy(data) {
@@ -41,12 +87,6 @@ function buildHierarchy(data) {
 
   return rootNode;
 }
-
-document.addEventListener("DOMContentLoaded", async () => {
-  const data = await fetchAndFormatData();
-  const orgChartData = buildHierarchy(data);
-  initChart(orgChartData);
-});
 
 function wrapText(textSelection, text, x, maxCharsPerLine = 28) {
   const words = text.split(/\s+/);
@@ -68,20 +108,68 @@ function wrapText(textSelection, text, x, maxCharsPerLine = 28) {
   }
 }
 
+function collapse(node) {
+  if (node.children) {
+    node._children = node.children;
+    node._children.forEach(collapse);
+    node.children = null;
+  }
+}
+
+function toggle(d) {
+  const parent = d.parent;
+
+  if (parent && parent.children) {
+    parent.children.forEach(sibling => {
+      if (sibling !== d && sibling.children) {
+        sibling._children = sibling.children;
+        sibling._children.forEach(collapse);
+        sibling.children = null;
+      }
+    });
+  }
+
+  if (d.children) {
+    d._children = d.children;
+    d._children.forEach(collapse);
+    d.children = null;
+  } else {
+    d.children = d._children;
+    d._children = null;
+  }
+}
+
+// function zoomToNode(svg, g, d, zoom) {
+//   const scale = 1.2;
+//   const translateX = -d.x + 400;
+//   const translateY = -d.y + 200;
+
+//   svg.transition()
+//     .duration(750)
+//     .call(
+//       zoom.transform,
+//       d3.zoomIdentity.translate(translateX, translateY).scale(scale)
+//     );
+// }
+
 function initChart(rootData) {
   const CARD_WIDTH = 290;
-  const CARD_HEIGHT = 150; // Fixed height
+  const CARD_HEIGHT = 150;
   const HORIZONTAL_SPACING = 40;
   const VERTICAL_SPACING = CARD_HEIGHT + 60;
 
   const svg = d3.select("#chart").append("svg");
   const g = svg.append("g");
+
+  // const zoom = d3.zoom().on("zoom", (event) => {
+  //   g.attr("transform", event.transform);
+  // });
+//  svg.call(zoom).on("wheel.zoom", null).on("dblclick.zoom", null).on("mousedown.zoom", null);
+
   const root = d3.hierarchy(rootData);
   root.x0 = 0;
   root.y0 = 0;
-
   const treeLayout = d3.tree().nodeSize([CARD_WIDTH + HORIZONTAL_SPACING, VERTICAL_SPACING]);
-
   root.children?.forEach(collapse);
   update(root);
 
@@ -92,8 +180,8 @@ function initChart(rootData) {
 
     const xMin = d3.min(nodes, d => d.x) - CARD_WIDTH;
     const xMax = d3.max(nodes, d => d.x) + CARD_WIDTH;
-  const yMin = d3.min(nodes, d => d.y) - CARD_HEIGHT / 2 - 40;
-const yMax = d3.max(nodes, d => d.y) + CARD_HEIGHT / 2 + 40;
+    const yMin = d3.min(nodes, d => d.y) - CARD_HEIGHT / 2 - 40;
+    const yMax = d3.max(nodes, d => d.y) + CARD_HEIGHT / 2 + 40;
     const width = xMax - xMin + 100;
     const height = yMax - yMin + 120;
 
@@ -105,9 +193,7 @@ const yMax = d3.max(nodes, d => d.y) + CARD_HEIGHT / 2 + 40;
     linkSel.enter()
       .append("path")
       .attr("class", "link")
-      .attr("stroke", "#ccc")
       .attr("fill", "none")
-      .attr("stroke-width", 2)
       .merge(linkSel)
       .attr("d", d => `
         M${d.source.x},${d.source.y + CARD_HEIGHT / 2}
@@ -133,8 +219,8 @@ const yMax = d3.max(nodes, d => d.y) + CARD_HEIGHT / 2 + 40;
       .attr("height", CARD_HEIGHT)
       .attr("rx", 10)
       .attr("ry", 10)
-      .attr("fill", "#fff")
-      .attr("stroke", "#ccc");
+      .attr("stroke", "#ccc")
+      .attr("fill", d => titleColors[d.data.title] || titleColors["default"]);
 
     const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
     nodeEnter.append("image")
@@ -157,8 +243,7 @@ const yMax = d3.max(nodes, d => d.y) + CARD_HEIGHT / 2 + 40;
         .attr("font-weight", "bold");
 
       wrapText(nameText, d.data.name, -CARD_WIDTH / 2 + 70);
-      const nameLineCount = nameText.selectAll("tspan").size();
-      offsetY += nameLineCount * 14;
+      offsetY += nameText.selectAll("tspan").size() * 14;
 
       const fields = [
         { fn: d => d.data.title },
@@ -184,16 +269,6 @@ const yMax = d3.max(nodes, d => d.y) + CARD_HEIGHT / 2 + 40;
       });
     });
 
-    nodeEnter.append("text")
-      .attr("x", -CARD_WIDTH / 2 + 10)
-      .attr("y", CARD_HEIGHT / 2 - 10)
-      .attr("font-size", "10px")
-      .attr("fill", "gray")
-      .each(function (d) {
-        const full = [d.data.office, d.data.location].filter(Boolean).join(" ");
-        wrapText(d3.select(this), full, -CARD_WIDTH / 2 + 10);
-      });
-
     nodeEnter.append("circle")
       .attr("class", "toggle-btn")
       .attr("cx", 0)
@@ -205,7 +280,8 @@ const yMax = d3.max(nodes, d => d.y) + CARD_HEIGHT / 2 + 40;
       .on("click", (event, d) => {
         event.stopPropagation();
         toggle(d);
-        update(root);
+        update(d);
+        // zoomToNode(svg, g, d, zoom); // <- Zoom into the clicked node
       });
 
     nodeEnter.append("text")
@@ -225,30 +301,11 @@ const yMax = d3.max(nodes, d => d.y) + CARD_HEIGHT / 2 + 40;
       .text(d => d.children ? "−" : d._children ? "+" : "");
 
     nodeSel.exit().remove();
-    linkSel.exit().remove();
-
-    nodes.forEach(d => {
-      d.x0 = d.x;
-      d.y0 = d.y;
-    });
-  }
-
-  function toggle(d) {
-    if (d.children) {
-      d._children = d.children;
-      d._children.forEach(collapse);
-      d.children = null;
-    } else {
-      d.children = d._children;
-      d._children = null;
-    }
-  }
-
-  function collapse(node) {
-    if (node.children) {
-      node._children = node.children;
-      node._children.forEach(collapse);
-      node.children = null;
-    }
   }
 }
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const data = await fetchAndFormatData();
+  const orgChartData = buildHierarchy(data);
+  initChart(orgChartData);
+});
