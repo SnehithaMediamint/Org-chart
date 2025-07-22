@@ -4,7 +4,6 @@ const titleColors = {
   "Chief Delivery Officer": "#81d4fa",
   "Senior Vice President": "#a5d6a7",
   "Vice President": "#f48fb1",
-  "Associate President": "#ce93d8",
   "Senior Director": "#ffcc80",
   "Director": "#b39ddb",
   "Associate Director": "#ffab91",
